@@ -1,24 +1,22 @@
 {
-	"name": "generic-websocket",
-	"version": "2.1.0",
+	"name": "glensound-minferno",
+	"version": "0.0.0",
 	"main": "main.js",
-	"type": "module",
 	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1",
 		"format": "prettier -w ."
 	},
 	"license": "MIT",
-	"dependencies": {
-		"@companion-module/base": "~1.2.1",
-		"object-path": "^0.11.8",
-		"ws": "^7.2.1"
-	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/bitfocus/companion-module-generic-websocket.git"
+		"url": "git+https://github.com/eimink/companion-module-glensound-minferno.git"
+	},
+	"dependencies": {
+		"@companion-module/base": "~1.5.1",
+		"object-path": "^0.11.8",
+		"ws": "^8.14.2"
 	},
 	"devDependencies": {
-		"@companion-module/tools": "^1.0.2"
+		"@companion-module/tools": "^1.4.1"
 	},
 	"prettier": "@companion-module/tools/.prettierrc.json"
 }

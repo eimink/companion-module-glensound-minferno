@@ -1,12 +1,16 @@
-import { InstanceBase, runEntrypoint, InstanceStatus } from '@companion-module/base'
-import WebSocket from 'ws'
-import objectPath from 'object-path'
-import { upgradeScripts } from './upgrade.js'
+const { InstanceBase, runEntrypoint, InstanceStatus } = require('@companion-module/base')
+const WebSocket = require('ws')
+const objectPath = require('object-path')
+const upgradeScripts = require('./upgrades.js')
+const { combineRgb } = require('@companion-module/base')
 
-class WebsocketInstance extends InstanceBase {
+class GlensoundMinfernoInstance extends InstanceBase {
 	isInitialized = false
 
 	subscriptions = new Map()
+	
+	pgmStatus = 0
+	
 	wsRegex = '^wss?:\\/\\/([\\da-z\\.-]+)(:\\d{1,5})?(?:\\/(.*))?$'
 
 	async init(config) {
@@ -40,16 +44,8 @@ class WebsocketInstance extends InstanceBase {
 
 	updateVariables(callerId = null) {
 		let variables = new Set()
+		variables.add('pgmStatus')
 		let defaultValues = {}
-		this.subscriptions.forEach((subscription, subscriptionId) => {
-			if (!subscription.variableName.match(/^[-a-zA-Z0-9_]+$/)) {
-				return
-			}
-			variables.add(subscription.variableName)
-			if (callerId === null || callerId === subscriptionId) {
-				defaultValues[subscription.variableName] = ''
-			}
-		})
 		let variableDefinitions = []
 		variables.forEach((variable) => {
 			variableDefinitions.push({
@@ -93,6 +89,7 @@ class WebsocketInstance extends InstanceBase {
 			delete this.ws
 		}
 		this.ws = new WebSocket(url)
+		this.ws.binaryType = 'arraybuffer'
 
 		this.ws.on('open', () => {
 			this.updateStatus(InstanceStatus.Ok)
@@ -115,32 +112,13 @@ class WebsocketInstance extends InstanceBase {
 	}
 
 	messageReceivedFromWebSocket(data) {
-		if (this.config.debug_messages) {
-			this.log('debug', `Message received: ${data}`)
+		let d = new Uint8Array(data)
+		let status = d[4] == 1 ? true : false
+		if (this.pgmStatus != status) {
+			this.pgmStatus = status
+			this.setVariableValues({['pgmStatus']: d[4]})
+			this.checkFeedbacks('pgm_status')
 		}
-
-		let msgValue = null
-		try {
-			msgValue = JSON.parse(data)
-		} catch (e) {
-			msgValue = data
-		}
-
-		this.subscriptions.forEach((subscription) => {
-			if (subscription.variableName === '') {
-				return
-			}
-			if (subscription.subpath === '') {
-				this.setVariableValues({
-					[subscription.variableName]: typeof msgValue === 'object' ? JSON.stringify(msgValue) : msgValue,
-				})
-			} else if (typeof msgValue === 'object' && objectPath.has(msgValue, subscription.subpath)) {
-				let value = objectPath.get(msgValue, subscription.subpath)
-				this.setVariableValues({
-					[subscription.variableName]: typeof value === 'object' ? JSON.stringify(value) : value,
-				})
-			}
-		})
 	}
 
 	getConfigFields() {
@@ -151,7 +129,7 @@ class WebsocketInstance extends InstanceBase {
 				width: 12,
 				label: 'Information',
 				value:
-					"<strong>PLEASE READ THIS!</strong> Generic modules is only for use with custom applications. If you use this module to control a device or software on the market that more than you are using, <strong>PLEASE let us know</strong> about this software, so we can make a proper module for it. If we already support this and you use this to trigger a feature our module doesn't support, please let us know. We want companion to be as easy as possible to use for anyone.",
+					"Quick 'event-coded' module to control Glensound Minferno's PGM channel.",
 			},
 			{
 				type: 'textinput',
@@ -166,14 +144,6 @@ class WebsocketInstance extends InstanceBase {
 				id: 'reconnect',
 				label: 'Reconnect',
 				tooltip: 'Reconnect on WebSocket error (after 5 secs)',
-				width: 6,
-				default: true,
-			},
-			{
-				type: 'checkbox',
-				id: 'append_new_line',
-				label: 'Append new line',
-				tooltip: 'Append new line (\\r\\n) to commands',
 				width: 6,
 				default: true,
 			},
@@ -197,41 +167,18 @@ class WebsocketInstance extends InstanceBase {
 
 	initFeedbacks() {
 		this.setFeedbackDefinitions({
-			websocket_variable: {
-				type: 'advanced',
-				name: 'Update variable with value from WebSocket message',
+			pgm_status: {
+				type: 'boolean',
+				name: 'PGM Button status',
+				label: 'PGM State',
 				description:
-					'Receive messages from the WebSocket and set the value to a variable. Variables can be used on any button.',
-				options: [
-					{
-						type: 'textinput',
-						label: 'JSON Path (blank if not json)',
-						id: 'subpath',
-						default: '',
-					},
-					{
-						type: 'textinput',
-						label: 'Variable',
-						id: 'variable',
-						regex: '/^[-a-zA-Z0-9_]+$/',
-						default: '',
-					},
-				],
-				callback: () => {
-					// Nothing to do, as this feeds a variable
-					return {}
+					'Status of the PGM channel',
+				defaultStyle: {
+					bgcolor: combineRgb(255, 0, 0),
+					color: combineRgb(0, 0, 0),
 				},
-				subscribe: (feedback) => {
-					this.subscriptions.set(feedback.id, {
-						variableName: feedback.options.variable,
-						subpath: feedback.options.subpath,
-					})
-					if (this.isInitialized) {
-						this.updateVariables(feedback.id)
-					}
-				},
-				unsubscribe: (feedback) => {
-					this.subscriptions.delete(feedback.id)
+				callback: (feedback) => {
+					return this.pgmStatus
 				},
 			},
 		})
@@ -239,27 +186,17 @@ class WebsocketInstance extends InstanceBase {
 
 	initActions() {
 		this.setActionDefinitions({
-			send_command: {
-				name: 'Send generic command',
-				options: [
-					{
-						type: 'textinput',
-						label: 'data',
-						id: 'data',
-						default: '',
-						useVariables: true,
-					},
-				],
+			toggle_mute: {
+				name: 'Toggle PGM',
 				callback: async (action, context) => {
-					const value = await context.parseVariablesInString(action.options.data)
-					if (this.config.debug_messages) {
-						this.log('debug', `Message sent: ${value}`)
-					}
-					this.ws.send(value + (this.config.append_new_line ? '\r\n' : ''))
+					let cmd1 = new Uint8Array([0,0,0,1,0,0,0,0,0,0])
+					let cmd2 = new Uint8Array([0,0,0,0,0,0,0,0,0,0])
+					this.ws.send(cmd1)
+					this.ws.send(cmd2)
 				},
 			},
 		})
 	}
 }
 
-runEntrypoint(WebsocketInstance, upgradeScripts)
+runEntrypoint(GlensoundMinfernoInstance, upgradeScripts)
