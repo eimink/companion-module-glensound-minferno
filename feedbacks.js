@@ -2,7 +2,7 @@ const { combineRgb } = require('@companion-module/base')
 
 module.exports = async function (self) {
 	self.setFeedbackDefinitions({
-		pgm_status: {
+		PGMStatus: {
 			name: 'PGM channel status',
 			type: 'boolean',
 			label: 'PGM State',

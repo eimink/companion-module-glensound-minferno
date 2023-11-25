@@ -1,6 +1,7 @@
 const { InstanceBase, runEntrypoint, InstanceStatus } = require('@companion-module/base')
 const WebSocket = require('ws')
 const objectPath = require('object-path')
+const UpdateActions = require('./actions')
 const UpdateFeedbacks = require('./feedbacks')
 const UpdateVariableDefinitions = require('./variables')
 const upgradeScripts = require('./upgrades')
@@ -11,7 +12,7 @@ class GlensoundMinfernoInstance extends InstanceBase {
 
 	subscriptions = new Map()
 	
-	pgmStatus = false
+	pgmStatus = true
 	
 	wsRegex = '^wss?:\\/\\/([\\da-z\\.-]+)(:\\d{1,5})?(?:\\/(.*))?$'
 	ipRegex = '^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\.?\\b){4}$'
@@ -24,7 +25,7 @@ class GlensoundMinfernoInstance extends InstanceBase {
 
 		this.updateFeedbacks()
 		this.updateVariableDefinitions()
-		this.initActions()
+		this.updateActions()
 	}
 
 	async destroy() {
@@ -54,6 +55,10 @@ class GlensoundMinfernoInstance extends InstanceBase {
 
 	updateVariableDefinitions() {
 		UpdateVariableDefinitions(this)
+	}
+	
+	updateActions() {
+		UpdateActions(this)
 	}
 
 	maybeReconnect() {
@@ -115,7 +120,7 @@ class GlensoundMinfernoInstance extends InstanceBase {
 			this.pgmStatus = status
 			this.log('debug', `received status: ${status}`)
 			this.setVariableValues({['pgmStatus']: d[4]})
-			this.checkFeedbacks('pgm_status')
+			this.checkFeedbacks('PGMStatus')
 		}
 	}
 
@@ -163,7 +168,7 @@ class GlensoundMinfernoInstance extends InstanceBase {
 		]
 	}
 
-	initActions() {
+	/*initActions() {
 		this.setActionDefinitions({
 			toggle_mute: {
 				name: 'Toggle PGM',
@@ -175,7 +180,7 @@ class GlensoundMinfernoInstance extends InstanceBase {
 				},
 			},
 		})
-	}
+	}*/
 }
 
 runEntrypoint(GlensoundMinfernoInstance, upgradeScripts)
