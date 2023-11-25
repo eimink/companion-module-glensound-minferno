@@ -128,7 +128,6 @@ class GlensoundMinfernoInstance extends InstanceBase {
 		}
 		if (this.pgmStatus != status) {
 			this.pgmStatus = status
-			this.log('debug', `received status: ${status}`)
 			this.setVariableValues({['pgmStatus']: d[4]})
 			this.checkFeedbacks('PGMStatus')
 		}
