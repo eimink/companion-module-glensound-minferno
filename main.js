@@ -4,8 +4,7 @@ const objectPath = require('object-path')
 const UpdateActions = require('./actions')
 const UpdateFeedbacks = require('./feedbacks')
 const UpdateVariableDefinitions = require('./variables')
-const upgradeScripts = require('./upgrades')
-const { combineRgb } = require('@companion-module/base')
+const UpgradeScripts = require('./upgrades')
 
 class GlensoundMinfernoInstance extends InstanceBase {
 	isInitialized = false
@@ -183,4 +182,4 @@ class GlensoundMinfernoInstance extends InstanceBase {
 	}*/
 }
 
-runEntrypoint(GlensoundMinfernoInstance, upgradeScripts)
+runEntrypoint(GlensoundMinfernoInstance, UpgradeScripts)
