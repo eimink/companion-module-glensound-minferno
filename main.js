@@ -12,6 +12,9 @@ class GlensoundMinfernoInstance extends InstanceBase {
 	subscriptions = new Map()
 	
 	pgmStatus = true
+	gainSetting = 255
+	meterPeakRaw = 0
+	meterPeak = 0
 	
 	wsRegex = '^wss?:\\/\\/([\\da-z\\.-]+)(:\\d{1,5})?(?:\\/(.*))?$'
 	ipRegex = '^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\.?\\b){4}$'
@@ -115,6 +118,14 @@ class GlensoundMinfernoInstance extends InstanceBase {
 	messageReceivedFromWebSocket(data) {
 		let d = new Uint8Array(data)
 		let status = d[4] == 1 ? true : false
+		let gainSetting = d[5]-128
+		this.meterPeakRaw = d[0]
+		this.meterPeak = 2*this.meterPeakRaw-14
+		this.setVariableValues({['meterPeak']: this.meterPeak,['meterPeakRaw']: this.meterPeakRaw,})
+		if (gainSetting != this.gainSetting) {
+			this.gainSetting = gainSetting
+			this.setVariableValues({['gainSetting']: gainSetting})
+		}
 		if (this.pgmStatus != status) {
 			this.pgmStatus = status
 			this.log('debug', `received status: ${status}`)
@@ -167,19 +178,6 @@ class GlensoundMinfernoInstance extends InstanceBase {
 		]
 	}
 
-	/*initActions() {
-		this.setActionDefinitions({
-			toggle_mute: {
-				name: 'Toggle PGM',
-				callback: async (action, context) => {
-					let cmd1 = new Uint8Array([0,0,0,1,0,0,0,0,0,0])
-					let cmd2 = new Uint8Array([0,0,0,0,0,0,0,0,0,0])
-					this.ws.send(cmd1)
-					this.ws.send(cmd2)
-				},
-			},
-		})
-	}*/
 }
 
 runEntrypoint(GlensoundMinfernoInstance, UpgradeScripts)
