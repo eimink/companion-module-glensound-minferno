@@ -1,7 +1,9 @@
 const { InstanceBase, runEntrypoint, InstanceStatus } = require('@companion-module/base')
 const WebSocket = require('ws')
 const objectPath = require('object-path')
-const upgradeScripts = require('./upgrades.js')
+const UpdateFeedbacks = require('./feedbacks')
+const UpdateVariableDefinitions = require('./variables')
+const upgradeScripts = require('./upgrades')
 const { combineRgb } = require('@companion-module/base')
 
 class GlensoundMinfernoInstance extends InstanceBase {
@@ -9,7 +11,7 @@ class GlensoundMinfernoInstance extends InstanceBase {
 
 	subscriptions = new Map()
 	
-	pgmStatus = 0
+	pgmStatus = false
 	
 	wsRegex = '^wss?:\\/\\/([\\da-z\\.-]+)(:\\d{1,5})?(?:\\/(.*))?$'
 	ipRegex = '^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\.?\\b){4}$'
@@ -20,9 +22,9 @@ class GlensoundMinfernoInstance extends InstanceBase {
 		this.initWebSocket()
 		this.isInitialized = true
 
-		this.updateVariables()
+		this.updateFeedbacks()
+		this.updateVariableDefinitions()
 		this.initActions()
-		this.initFeedbacks()
 	}
 
 	async destroy() {
@@ -42,21 +44,16 @@ class GlensoundMinfernoInstance extends InstanceBase {
 		this.initWebSocket()
 	}
 
-	updateVariables(callerId = null) {
-		let variables = new Set()
-		variables.add('pgmStatus')
-		let defaultValues = {}
-		let variableDefinitions = []
-		variables.forEach((variable) => {
-			variableDefinitions.push({
-				name: variable,
-				variableId: variable,
-			})
-		})
-		this.setVariableDefinitions(variableDefinitions)
-		if (this.config.reset_variables) {
-			this.setVariableValues(defaultValues)
-		}
+	updateActions() {
+		UpdateActions(this)
+	}
+
+	updateFeedbacks() {
+		UpdateFeedbacks(this)
+	}
+
+	updateVariableDefinitions() {
+		UpdateVariableDefinitions(this)
 	}
 
 	maybeReconnect() {
@@ -95,7 +92,7 @@ class GlensoundMinfernoInstance extends InstanceBase {
 			this.updateStatus(InstanceStatus.Ok)
 			this.log('debug', `Connection opened`)
 			if (this.config.reset_variables) {
-				this.updateVariables()
+				this.updateVariableDefinitions()
 			}
 		})
 		this.ws.on('close', (code) => {
@@ -116,6 +113,7 @@ class GlensoundMinfernoInstance extends InstanceBase {
 		let status = d[4] == 1 ? true : false
 		if (this.pgmStatus != status) {
 			this.pgmStatus = status
+			this.log('debug', `received status: ${status}`)
 			this.setVariableValues({['pgmStatus']: d[4]})
 			this.checkFeedbacks('pgm_status')
 		}
@@ -163,25 +161,6 @@ class GlensoundMinfernoInstance extends InstanceBase {
 				default: true,
 			},
 		]
-	}
-
-	initFeedbacks() {
-		this.setFeedbackDefinitions({
-			pgm_status: {
-				type: 'boolean',
-				name: 'PGM Button status',
-				label: 'PGM State',
-				description:
-					'Status of the PGM channel',
-				defaultStyle: {
-					bgcolor: combineRgb(255, 0, 0),
-					color: combineRgb(0, 0, 0),
-				},
-				callback: (feedback) => {
-					return this.pgmStatus
-				},
-			},
-		})
 	}
 
 	initActions() {
