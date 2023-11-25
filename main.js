@@ -12,6 +12,7 @@ class GlensoundMinfernoInstance extends InstanceBase {
 	pgmStatus = 0
 	
 	wsRegex = '^wss?:\\/\\/([\\da-z\\.-]+)(:\\d{1,5})?(?:\\/(.*))?$'
+	ipRegex = '^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\.?\\b){4}$'
 
 	async init(config) {
 		this.config = config
@@ -22,7 +23,6 @@ class GlensoundMinfernoInstance extends InstanceBase {
 		this.updateVariables()
 		this.initActions()
 		this.initFeedbacks()
-		this.subscribeFeedbacks()
 	}
 
 	async destroy() {
@@ -76,9 +76,9 @@ class GlensoundMinfernoInstance extends InstanceBase {
 			this.reconnect_timer = null
 		}
 
-		const url = this.config.url
+		const url = 'ws://'+this.config.ipaddr+'/ppmetc'
 		if (!url || url.match(new RegExp(this.wsRegex)) === null) {
-			this.updateStatus(InstanceStatus.BadConfig, `WS URL is not defined or invalid`)
+			this.updateStatus(InstanceStatus.BadConfig, `IP address is not defined or invalid`)
 			return
 		}
 
@@ -133,11 +133,11 @@ class GlensoundMinfernoInstance extends InstanceBase {
 			},
 			{
 				type: 'textinput',
-				id: 'url',
-				label: 'Target URL',
-				tooltip: 'The URL of the WebSocket server (ws[s]://domain[:port][/path])',
+				id: 'ipaddr',
+				label: 'Target IP',
+				tooltip: 'The IP address of the Glensound Minferno)',
 				width: 12,
-				regex: '/' + this.wsRegex + '/',
+				regex: '/' + this.ipRegex + '/',
 			},
 			{
 				type: 'checkbox',
